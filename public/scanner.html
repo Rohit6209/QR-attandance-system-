@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>AR Library – Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.2/socket.io.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root {
+    --navy: #0a1628;
+    --navy2: #112040;
+    --gold: #c9a84c;
+    --gold2: #f0d080;
+    --white: #f4f1ea;
+    --grey: #8a9bb5;
+    --card: #0e1f3a;
+    --border: rgba(201,168,76,0.22);
+    --success: #2ecc71;
+    --error: #e74c3c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, #070f1e 0%, var(--navy2) 100%);
+    border-bottom: 1.5px solid var(--border);
+    padding: 0 20px;
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top:0; z-index:100;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+  }
+  .logo-area { display:flex; align-items:center; gap:12px; }
+  .logo-area img { width:40px; height:40px; border-radius:8px; box-shadow:0 0 14px rgba(201,168,76,0.3); }
+  .logo-text .brand { font-family:'Playfair Display',serif; font-size:1.1rem; color:var(--gold2); }
+  .logo-text .sub { font-size:0.66rem; color:var(--grey); letter-spacing:0.12em; text-transform:uppercase; }
+  .status-pill {
+    display:flex; align-items:center; gap:6px;
+    background:rgba(201,168,76,0.08); border:1px solid var(--border);
+    border-radius:40px; padding:5px 12px; font-size:0.75rem; color:var(--grey);
+  }
+  .dot { width:7px;height:7px;border-radius:50%;background:#555;transition:background 0.4s; }
+  .dot.connected { background:#2ecc71;box-shadow:0 0 8px #2ecc71; }
+
+  main { flex:1; padding:20px 16px; max-width:500px; margin:0 auto; width:100%; }
+
+  /* SERVER CONNECT */
+  .server-box {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:16px; padding:18px; margin-bottom:18px;
+  }
+  .server-box label { font-size:0.74rem; color:var(--grey); text-transform:uppercase; letter-spacing:0.1em; display:block; margin-bottom:8px; }
+  .server-row { display:flex; gap:8px; }
+  .server-row input {
+    flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border);
+    border-radius:8px; color:var(--white); font-family:'DM Sans',sans-serif;
+    padding:9px 12px; font-size:0.85rem;
+  }
+  .server-row input:focus { outline:none; border-color:var(--gold); }
+  .btn {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:9px 18px; border-radius:8px;
+    font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600;
+    cursor:pointer; border:none; transition:all 0.2s;
+  }
+  .btn-gold { background:linear-gradient(135deg,var(--gold) 0%,#a07830 100%); color:var(--navy); }
+  .btn-gold:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(201,168,76,0.3); }
+  .btn-outline { background:transparent; border:1.5px solid var(--border); color:var(--grey); }
+  .btn-success-solid { background:rgba(46,204,113,0.15); border:1.5px solid rgba(46,204,113,0.35); color:var(--success); }
+
+  /* STUDENT FORM */
+  .form-card {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:16px; padding:20px; margin-bottom:18px;
+  }
+  .form-card h2 { font-family:'Playfair Display',serif; color:var(--gold2); font-size:1rem; margin-bottom:14px; }
+  .field { margin-bottom:12px; }
+  .field label { font-size:0.74rem; color:var(--grey); text-transform:uppercase; letter-spacing:0.1em; display:block; margin-bottom:6px; }
+  .field input {
+    width:100%; background:rgba(255,255,255,0.05);
+    border:1px solid var(--border); border-radius:8px;
+    color:var(--white); font-family:'DM Sans',sans-serif;
+    padding:11px 14px; font-size:0.92rem;
+    transition:border-color 0.2s;
+  }
+  .field input:focus { outline:none; border-color:var(--gold); }
+  .field input::placeholder { color:rgba(138,155,181,0.5); }
+
+  /* SCANNER */
+  .scanner-card {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:16px; overflow:hidden; margin-bottom:18px;
+  }
+  .scanner-title {
+    padding:16px 18px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .scanner-title h2 { font-family:'Playfair Display',serif; color:var(--gold2); font-size:1rem; }
+  #reader {
+    width:100%; background:#000; min-height:240px;
+    position:relative;
+  }
+  /* Override html5-qrcode styles */
+  #reader img { display:none !important; }
+  #reader video { border-radius:0 !important; width:100% !important; }
+  #reader__scan_region { border:none !important; }
+  #reader__dashboard { background:var(--card) !important; border-top:1px solid var(--border) !important; padding:12px !important; }
+  #reader__dashboard_section_csr button {
+    background:var(--gold) !important; color:var(--navy) !important;
+    border:none !important; border-radius:8px !important;
+    font-family:'DM Sans',sans-serif !important; font-weight:600 !important;
+    padding:8px 18px !important; cursor:pointer !important;
+  }
+  #reader__dashboard_section_swaplink { display:none !important; }
+  .scanner-hint {
+    padding:14px 18px; text-align:center; font-size:0.8rem; color:var(--grey);
+    border-top:1px solid var(--border);
+  }
+
+  /* SCAN RESULT */
+  .result-card {
+    border-radius:16px; padding:20px; margin-bottom:18px;
+    border:1.5px solid; display:none; animation:fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)} }
+  .result-card.success { background:rgba(46,204,113,0.08); border-color:rgba(46,204,113,0.35); }
+  .result-card.error { background:rgba(231,76,60,0.08); border-color:rgba(231,76,60,0.35); }
+  .result-icon { font-size:2.5rem; text-align:center; margin-bottom:10px; }
+  .result-title { text-align:center; font-family:'Playfair Display',serif; font-size:1.1rem; margin-bottom:6px; }
+  .result-card.success .result-title { color:var(--success); }
+  .result-card.error .result-title { color:var(--error); }
+  .result-msg { text-align:center; font-size:0.85rem; color:var(--grey); margin-bottom:14px; }
+  .result-details {
+    background:rgba(255,255,255,0.04); border-radius:10px;
+    padding:12px 16px; display:none;
+  }
+  .result-details.show { display:block; }
+  .detail-row { display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem; }
+  .detail-row .label { color:var(--grey); }
+  .detail-row .val { color:var(--white); font-weight:500; }
+
+  /* MANUAL SUBMIT */
+  .submit-area { display:flex; gap:10px; }
+  .submit-area .btn { flex:1; justify-content:center; }
+
+  /* SCAN HISTORY */
+  .history-card {
+    background:var(--card); border:1.5px solid var(--border);
+    border-radius:16px; overflow:hidden; margin-bottom:20px;
+  }
+  .history-title { padding:14px 18px; border-bottom:1px solid var(--border); }
+  .history-title h3 { font-family:'Playfair Display',serif; color:var(--gold2); font-size:0.95rem; }
+  .history-list { max-height:220px; overflow-y:auto; }
+  .history-item {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 18px; border-bottom:1px solid rgba(201,168,76,0.06);
+    animation:slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)} }
+  .history-item:last-child { border-bottom:none; }
+  .h-icon { width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0; }
+  .h-icon.ok { background:rgba(46,204,113,0.15); }
+  .h-icon.err { background:rgba(231,76,60,0.15); }
+  .h-info .h-name { font-size:0.88rem; font-weight:500; }
+  .h-info .h-sub { font-size:0.76rem; color:var(--grey); }
+  .h-time { margin-left:auto; font-size:0.76rem; color:var(--grey); }
+  .empty-hist { text-align:center; padding:28px; font-size:0.85rem; color:var(--grey); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <img src="AR-Library-Icon-512x512.png" alt="AR Library" onerror="this.style.display='none'"/>
+    <div class="logo-text">
+      <div class="brand">AR Library</div>
+      <div class="sub">Student Scanner</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="connDot"></div>
+    <span id="connLabel">Offline</span>
+  </div>
+</header>
+
+<main>
+  <!-- STUDENT FORM -->
+  <div class="form-card">
+    <h2>👤 Your Details</h2>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="studentName" placeholder="e.g. Rahul Sharma" autocomplete="name"/>
+    </div>
+    <div class="field">
+      <label>Father's Name</label>
+      <input type="text" id="studentFather" placeholder="e.g. Ramesh Sharma" autocomplete="off"/>
+    </div>
+  </div>
+
+  <!-- SCANNER -->
+  <div class="scanner-card">
+    <div class="scanner-title">
+      <h2>📷 QR Scanner</h2>
+      <button class="btn btn-outline" onclick="toggleScanner()" id="scanToggleBtn" style="padding:6px 14px;font-size:0.78rem;">Start Camera</button>
+    </div>
+    <div id="reader"></div>
+    <div class="scanner-hint">Point your camera at the QR code displayed at the library entrance</div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card" id="resultCard">
+    <div class="result-icon" id="resultIcon"></div>
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-msg" id="resultMsg"></div>
+    <div class="result-details" id="resultDetails">
+      <div class="detail-row"><span class="label">Name</span><span class="val" id="rName"></span></div>
+      <div class="detail-row"><span class="label">Father's Name</span><span class="val" id="rRoll"></span></div>
+      <div class="detail-row"><span class="label">Time</span><span class="val" id="rTime"></span></div>
+    </div>
+  </div>
+
+  <!-- SCAN HISTORY -->
+  <div class="history-card">
+    <div class="history-title"><h3>📋 Your Scan History (This Session)</h3></div>
+    <div class="history-list" id="historyList">
+      <div class="empty-hist">No scans yet this session</div>
+    </div>
+  </div>
+</main>
+
+<script>
+let socket = null;
+let serverBase = '';
+let html5QrCode = null;
+let scanning = false;
+let scanHistory = [];
+let lastScanned = null;
+let scanCooldown = false;
+
+// ─── HARDCODE YOUR RENDER SERVER URL HERE ───────────────────────────────────
+const SERVER_URL = 'https://your-app.onrender.com';
+// ────────────────────────────────────────────────────────────────────────────
+
+// Load saved student info
+const savedName = localStorage.getItem('ar_student_name') || '';
+const savedFather = localStorage.getItem('ar_student_father') || '';
+if (savedName) document.getElementById('studentName').value = savedName;
+if (savedFather) document.getElementById('studentFather').value = savedFather;
+
+// Save student info on input
+document.getElementById('studentName').addEventListener('change', e => localStorage.setItem('ar_student_name', e.target.value));
+document.getElementById('studentFather').addEventListener('change', e => localStorage.setItem('ar_student_father', e.target.value));
+
+function connectServer() {
+  serverBase = SERVER_URL;
+
+  if (socket) socket.disconnect();
+  socket = io(serverBase, { transports: ['websocket', 'polling'] });
+
+  socket.on('connect', () => {
+    document.getElementById('connDot').className = 'dot connected';
+    document.getElementById('connLabel').textContent = 'Online';
+  });
+
+  socket.on('disconnect', () => {
+    document.getElementById('connDot').className = 'dot';
+    document.getElementById('connLabel').textContent = 'Offline';
+  });
+
+  socket.on('qr_updated', () => {
+    lastScanned = null;
+  });
+}
+
+// Auto-connect on page load
+setTimeout(connectServer, 300);
+
+function toggleScanner() {
+  if (scanning) {
+    stopScanner();
+  } else {
+    startScanner();
+  }
+}
+
+function startScanner() {
+  const name = document.getElementById('studentName').value.trim();
+  const father = document.getElementById('studentFather').value.trim();
+  if (!name || !father) {
+    showResult('error', '⚠️', 'Missing Details', 'Please enter your Name and Father\'s Name before scanning.');
+    return;
+  }
+  if (!serverBase) {
+    showResult('error', '⚠️', 'Not Connected', 'Connecting to server, please wait a moment and try again.');
+    return;
+  }
+
+  html5QrCode = new Html5Qrcode('reader');
+  const config = { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 };
+
+  html5QrCode.start(
+    { facingMode: 'environment' },
+    config,
+    onScanSuccess,
+    () => {}
+  ).then(() => {
+    scanning = true;
+    document.getElementById('scanToggleBtn').textContent = 'Stop Camera';
+  }).catch(err => {
+    showResult('error', '📷', 'Camera Error', 'Could not access camera. Please allow camera permission and try again.');
+    console.error(err);
+  });
+}
+
+function stopScanner() {
+  if (html5QrCode && scanning) {
+    html5QrCode.stop().then(() => {
+      scanning = false;
+      document.getElementById('scanToggleBtn').textContent = 'Start Camera';
+    }).catch(e => console.error(e));
+  }
+}
+
+async function onScanSuccess(decodedText) {
+  if (scanCooldown) return;
+  if (!decodedText.startsWith('ARLIBRARY_')) {
+    showResult('error', '❌', 'Invalid QR Code', 'This QR code is not from AR Library. Please scan the correct code.');
+    return;
+  }
+
+  scanCooldown = true;
+  setTimeout(() => { scanCooldown = false; }, 4000);
+
+  const name = document.getElementById('studentName').value.trim();
+  const father = document.getElementById('studentFather').value.trim();
+
+  try {
+    const res = await fetch(`${serverBase}/api/mark-attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, fatherName: father, sessionId: decodedText })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showResult('success', '✅', 'Attendance Marked!', `Welcome to AR Library, ${name}!`, data.record);
+      addHistory(true, name, father, data.record.time);
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    } else {
+      showResult('error', '⚠️', 'Not Marked', data.error || 'Something went wrong.');
+      addHistory(false, name, father, data.error);
+      if (navigator.vibrate) navigator.vibrate(300);
+    }
+  } catch (e) {
+    showResult('error', '📡', 'Connection Error', 'Cannot reach server. Check your internet connection.');
+    if (navigator.vibrate) navigator.vibrate(300);
+  }
+}
+
+function showResult(type, icon, title, msg, record = null) {
+  const card = document.getElementById('resultCard');
+  card.className = `result-card ${type}`;
+  card.style.display = 'block';
+  document.getElementById('resultIcon').textContent = icon;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultMsg').textContent = msg;
+
+  const details = document.getElementById('resultDetails');
+  if (record) {
+    document.getElementById('rName').textContent = record.name;
+    document.getElementById('rRoll').textContent = record.rollNo;
+    document.getElementById('rTime').textContent = record.time;
+    details.className = 'result-details show';
+  } else {
+    details.className = 'result-details';
+  }
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function addHistory(ok, name, roll, timeOrMsg) {
+  scanHistory.unshift({ ok, name, roll, timeOrMsg, ts: new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true }) });
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (scanHistory.length === 0) {
+    list.innerHTML = '<div class="empty-hist">No scans yet this session</div>';
+    return;
+  }
+  list.innerHTML = scanHistory.map(h => `
+    <div class="history-item">
+      <div class="h-icon ${h.ok ? 'ok' : 'err'}">${h.ok ? '✅' : '❌'}</div>
+      <div class="h-info">
+        <div class="h-name">${escHtml(h.name)} <span style="color:var(--grey);font-size:0.78rem;">(${escHtml(h.roll)})</span></div>
+        <div class="h-sub">${h.ok ? 'Marked at ' + h.timeOrMsg : escHtml(h.timeOrMsg)}</div>
+      </div>
+      <div class="h-time">${h.ts}</div>
+    </div>
+  `).join('');
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
