@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartSeat — AR Library</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f6f7fb;
+    --white: #ffffff;
+    --border: #e4e7ef;
+    --accent: #3d5cff;
+    --accent-dim: #eceffe;
+    --green: #12b76a;
+    --green-dim: #d1fadf;
+    --red: #f04438;
+    --red-dim: #fee4e2;
+    --text: #101828;
+    --sub: #667085;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--white); border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem; height: 56px;
+    display: flex; align-items: center; gap: 0.75rem;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-box { width: 34px; height: 34px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+  .logo-name { font-size: 1rem; font-weight: 700; }
+  .logo-name em { color: var(--accent); font-style: normal; }
+  .pill { margin-left: auto; background: var(--accent-dim); color: var(--accent); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 0.2rem 0.65rem; border-radius: 20px; }
+
+  main { max-width: 440px; margin: 0 auto; padding: 2rem 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .hero-text h1 { font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.25; margin-bottom: 0.35rem; }
+  .hero-text p { color: var(--sub); font-size: 0.88rem; line-height: 1.5; }
+
+  .cam-card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 16px rgba(61,92,255,0.06); }
+
+  .cam-viewport { width: 100%; aspect-ratio: 1; background: #0c0e14; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .cam-viewport video { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .cam-viewport canvas { display: none; }
+
+  .cam-idle { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; padding: 2.5rem 1.5rem; text-align: center; }
+  .idle-ring { width: 72px; height: 72px; border-radius: 50%; border: 2px solid rgba(61,92,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 2rem; animation: ringPulse 2.4s infinite; }
+  @keyframes ringPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(61,92,255,0.25); } 50% { box-shadow: 0 0 0 12px rgba(61,92,255,0); } }
+  .cam-idle h3 { color: #e8eaf6; font-size: 1rem; font-weight: 600; }
+  .cam-idle p { color: #6b7a9a; font-size: 0.8rem; line-height: 1.5; }
+
+  .scan-ui { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  .scan-ui.on { display: flex; }
+  .frame-box { width: 58%; aspect-ratio: 1; position: relative; z-index: 2; }
+  .c { position: absolute; width: 22px; height: 22px; border-color: #fff; border-style: solid; }
+  .c.tl { top:0; left:0; border-width: 2.5px 0 0 2.5px; border-radius: 4px 0 0 0; }
+  .c.tr { top:0; right:0; border-width: 2.5px 2.5px 0 0; border-radius: 0 4px 0 0; }
+  .c.bl { bottom:0; left:0; border-width: 0 0 2.5px 2.5px; border-radius: 0 0 0 4px; }
+  .c.br { bottom:0; right:0; border-width: 0 2.5px 2.5px 0; border-radius: 0 0 4px 0; }
+  .sline { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); box-shadow: 0 0 10px var(--accent); animation: sweep 2.2s infinite ease-in-out; }
+  @keyframes sweep { 0% { top: 4%; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { top: 96%; opacity: 0; } }
+  .dim-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.42); z-index: 1; }
+
+  .cam-footer { padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .btn-start { width: 100%; padding: 0.8rem; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.45rem; transition: all 0.18s; }
+  .btn-start:hover { background: #2a45e8; }
+  .btn-stop { width: 100%; padding: 0.65rem; background: transparent; color: var(--sub); border: 1px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: none; transition: all 0.18s; }
+  .btn-stop:hover { border-color: var(--red); color: var(--red); }
+
+  .name-form { display: none; flex-direction: column; gap: 0.6rem; padding-top: 0.75rem; border-top: 1px solid var(--border); margin-top: 0.2rem; }
+  .name-form.show { display: flex; }
+  .form-label { font-size: 0.78rem; color: var(--sub); font-weight: 500; }
+  .form-label strong { color: var(--accent); font-family: var(--mono); }
+  .name-input { width: 100%; padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.92rem; color: var(--text); outline: none; transition: border 0.2s; background: var(--bg); }
+  .name-input:focus { border-color: var(--accent); background: #fff; }
+  .btn-confirm { padding: 0.7rem; background: var(--green); color: #fff; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.18s; }
+  .btn-confirm:hover { background: #0e9c5a; }
+  .btn-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .result-card { border-radius: 16px; padding: 1.1rem 1.25rem; display: none; align-items: center; gap: 1rem; animation: slideUp 0.28s ease; }
+  .result-card.show { display: flex; }
+  .result-card.in  { background: var(--green-dim); border: 1.5px solid #a6f4c5; }
+  .result-card.out { background: var(--red-dim); border: 1.5px solid #fda29b; }
+  @keyframes slideUp { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .res-icon { font-size: 2.2rem; flex-shrink: 0; }
+  .res-body h3 { font-size: 0.98rem; font-weight: 700; }
+  .res-body p  { font-size: 0.8rem; color: var(--sub); margin-top: 0.15rem; }
+  .res-seat { margin-left: auto; flex-shrink: 0; font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+
+  .history-card { background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 1.1rem 1.25rem; }
+  .sec-title { font-size: 0.72rem; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.75rem; }
+  .h-list { display: flex; flex-direction: column; gap: 0.35rem; }
+  .h-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.45rem 0.6rem; border-radius: 8px; background: var(--bg); font-size: 0.82rem; }
+  .h-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .h-dot.in  { background: var(--green); }
+  .h-dot.out { background: var(--red); }
+  .h-name { flex: 1; font-weight: 500; }
+  .h-seat { font-family: var(--mono); font-size: 0.78rem; font-weight: 700; color: var(--accent); }
+  .h-time { font-size: 0.72rem; color: var(--sub); margin-left: auto; }
+  .no-hist { text-align: center; color: var(--sub); font-size: 0.82rem; padding: 0.6rem; }
+
+  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(70px); background: #1a1e2e; color: #fff; border-radius: 10px; padding: 0.65rem 1.1rem; font-size: 0.83rem; font-weight: 500; z-index: 999; white-space: nowrap; box-shadow: 0 4px 24px rgba(0,0,0,0.18); transition: all 0.26s; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-box">📚</div>
+  <div class="logo-name">Smart<em>Seat</em></div>
+  <div style="font-size:0.75rem;color:var(--sub);font-weight:600;">AR Library</div>
+  <div class="pill">Student</div>
+</header>
+
+<main>
+  <div class="hero-text">
+    <h1>Scan Your Seat QR 👋</h1>
+    <p>Point the camera at your seat's QR code to check in or check out automatically.</p>
+  </div>
+
+  <div class="cam-card">
+    <div class="cam-viewport" id="viewport">
+      <div class="cam-idle" id="camIdle">
+        <div class="idle-ring">📷</div>
+        <h3>Camera Ready</h3>
+        <p>Tap the button below to start your camera and scan the seat QR code.</p>
+      </div>
+      <video id="camVideo" autoplay playsinline></video>
+      <canvas id="camCanvas"></canvas>
+      <div class="scan-ui" id="scanUI">
+        <div class="dim-overlay"></div>
+        <div class="frame-box">
+          <div class="c tl"></div><div class="c tr"></div>
+          <div class="c bl"></div><div class="c br"></div>
+          <div class="sline"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cam-footer">
+      <button class="btn-start" id="startBtn" onclick="startCamera()">📷 Start Camera</button>
+      <button class="btn-stop" id="stopBtn" onclick="stopCamera()">⏹ Stop Camera</button>
+      <div class="name-form" id="nameForm">
+        <div class="form-label">Enter your name for seat <strong id="formSeat">—</strong></div>
+        <input class="name-input" type="text" id="nameInput" placeholder="Your full name..." autocomplete="name">
+        <button class="btn-confirm" id="confirmBtn" onclick="submitCheckin()">✅ Confirm Check-in</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="res-icon" id="resIcon">✅</div>
+    <div class="res-body">
+      <h3 id="resTitle">Checked In!</h3>
+      <p id="resSub">—</p>
+    </div>
+    <div class="res-seat" id="resSeat">—</div>
+  </div>
+
+  <div class="history-card">
+    <div class="sec-title">Today's Activity</div>
+    <div class="h-list" id="histList"><div class="no-hist">No scans yet</div></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  HARDCODED API BASE URL
+// ═══════════════════════════════════════════════════════════════
+const API = 'https://qr-attandance-system-1.onrender.com/api';
+
+let camStream = null, scanInterval = null;
+let pendingSeat = null, lastScanned = null, lastTime = 0;
+let history = [];
+
+// ── API HELPERS ───────────────────────────────────────────────
+async function apiGet(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.error || 'Server error'), data);
+  return data;
+}
+
+// ── CAMERA ────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    camStream = stream;
+    const v = document.getElementById('camVideo');
+    v.srcObject = stream; v.style.display = 'block';
+    document.getElementById('camIdle').style.display = 'none';
+    document.getElementById('scanUI').classList.add('on');
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('stopBtn').style.display = 'block';
+    startLoop();
+    toast('📷 Camera started!');
+  } catch(e) {
+    if (e.name === 'NotAllowedError') toast('❌ Camera permission denied. Please allow in browser settings.');
+    else if (e.name === 'NotFoundError') toast('❌ No camera found on this device.');
+    else toast('❌ Camera error: ' + e.message);
+  }
+}
+
+function stopCamera() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  const v = document.getElementById('camVideo');
+  v.style.display = 'none'; v.srcObject = null;
+  document.getElementById('camIdle').style.display = 'flex';
+  document.getElementById('scanUI').classList.remove('on');
+  document.getElementById('startBtn').style.display = 'block';
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('nameForm').classList.remove('show');
+  pendingSeat = null;
+}
+
+function startLoop() {
+  const v = document.getElementById('camVideo'), c = document.getElementById('camCanvas'), ctx = c.getContext('2d');
+  scanInterval = setInterval(() => {
+    if (v.readyState !== v.HAVE_ENOUGH_DATA) return;
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code) processScan(code.data);
+  }, 300);
+}
+
+// ── QR PROCESSING ─────────────────────────────────────────────
+async function processScan(data) {
+  const now = Date.now();
+  if (data === lastScanned && now - lastTime < 4000) return;
+  lastScanned = data; lastTime = now;
+
+  if (!data.startsWith('SMARTSEAT::')) { toast('❌ Not a valid SmartSeat QR code!'); return; }
+  const seatId = data.replace('SMARTSEAT::', '');
+
+  toast('⏳ Checking seat...');
+  try {
+    const att = await apiGet('/attendance');
+    if (att[seatId]) {
+      // checkout
+      const name = att[seatId].name;
+      await apiPost('/checkout', { seatId });
+      showResult('out', seatId, name);
+      addHistory('out', seatId, name);
+      document.getElementById('nameForm').classList.remove('show');
+      toast('🚪 Checked out successfully!');
+    } else {
+      // need name → show form
+      pendingSeat = seatId;
+      document.getElementById('formSeat').textContent = seatId;
+      document.getElementById('nameInput').value = '';
+      document.getElementById('nameForm').classList.add('show');
+      setTimeout(() => document.getElementById('nameInput').focus(), 120);
+      toast('📝 Enter your name to check in');
+    }
+  } catch(e) {
+    toast('❌ Error: ' + (e.message || 'Server unreachable'));
+  }
+}
+
+async function submitCheckin() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) { toast('❌ Name cannot be empty!'); return; }
+  if (!pendingSeat) { toast('❌ Please scan a QR code first!'); return; }
+
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Checking in...';
+
+  try {
+    await apiPost('/checkin', { seatId: pendingSeat, name });
+    showResult('in', pendingSeat, name);
+    addHistory('in', pendingSeat, name);
+    document.getElementById('nameForm').classList.remove('show');
+    pendingSeat = null;
+    toast('✅ Checked in successfully!');
+  } catch(e) {
+    if (e.occupied) toast('❌ Seat already occupied! Scan again.');
+    else toast('❌ Error: ' + (e.message || 'Server unreachable'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Confirm Check-in';
+  }
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function showResult(type, seatId, name) {
+  const card = document.getElementById('resultCard');
+  card.className = `result-card show ${type}`;
+  document.getElementById('resIcon').textContent  = type === 'in' ? '✅' : '🚪';
+  document.getElementById('resTitle').textContent = type === 'in' ? 'Checked In!' : 'Checked Out!';
+  document.getElementById('resSub').textContent   = `${name} — ${getTime()}`;
+  document.getElementById('resSeat').textContent  = seatId;
+  setTimeout(() => card.classList.remove('show'), 7000);
+}
+
+function addHistory(type, seatId, name) {
+  history.unshift({ type, seatId, name, time: getTime() });
+  if (history.length > 12) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const el = document.getElementById('histList');
+  if (!history.length) { el.innerHTML = '<div class="no-hist">No scans yet</div>'; return; }
+  el.innerHTML = history.map(h => `
+    <div class="h-item">
+      <div class="h-dot ${h.type}"></div>
+      <div class="h-name">${h.name}</div>
+      <div class="h-seat">${h.seatId}</div>
+      <div class="h-time">${h.type === 'in' ? '✅' : '🚪'} ${h.time}</div>
+    </div>`).join('');
+}
+
+function getTime() { return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

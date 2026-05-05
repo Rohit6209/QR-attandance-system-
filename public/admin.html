@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartSeat — AR Library Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #09090f;
+    --s1: #111118;
+    --s2: #1a1a26;
+    --border: #222232;
+    --accent: #5b5ef7;
+    --accent-dim: rgba(91,94,247,0.12);
+    --green: #00d68f;
+    --green-dim: rgba(0,214,143,0.1);
+    --red: #ff5c5c;
+    --red-dim: rgba(255,92,92,0.1);
+    --yellow: #ffb800;
+    --text: #eeeef5;
+    --sub: #6b6b88;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+  aside {
+    width: 210px; flex-shrink: 0;
+    background: var(--s1);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    position: fixed; inset: 0 auto 0 0;
+    z-index: 50;
+  }
+  .sb-logo { padding: 1.2rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.6rem; }
+  .sb-logo-icon { width: 30px; height: 30px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+  .sb-logo-name { font-size: 0.95rem; font-weight: 800; }
+  .sb-logo-name em { color: var(--accent); font-style: normal; }
+  .sb-badge { margin: 0.6rem 1rem; background: var(--accent-dim); border: 1px solid rgba(91,94,247,0.2); color: var(--accent); font-size: 0.63rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0.18rem 0.55rem; border-radius: 5px; text-align: center; }
+  .sb-nav { padding: 0.4rem 0.6rem; flex: 1; display: flex; flex-direction: column; gap: 0.15rem; }
+  .sb-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.58rem 0.7rem; border-radius: 9px; border: none; background: transparent; color: var(--sub); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; width: 100%; text-align: left; transition: all 0.16s; }
+  .sb-item:hover { background: var(--s2); color: var(--text); }
+  .sb-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+  .sb-item .ico { font-size: 0.9rem; width: 18px; text-align: center; }
+  .sb-footer { padding: 0.9rem 1rem; border-top: 1px solid var(--border); }
+  .sb-clock { font-family: var(--mono); font-size: 0.78rem; color: var(--sub); }
+
+  .main { margin-left: 210px; flex: 1; padding: 2rem 2rem 3rem; }
+  .pg-header { margin-bottom: 1.75rem; }
+  .pg-header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 0.25rem; }
+  .pg-header p { color: var(--sub); font-size: 0.85rem; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.75rem; }
+  .stat-box { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.3rem; }
+  .stat-lbl { font-size: 0.7rem; color: var(--sub); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 0.4rem; }
+  .stat-val { font-size: 2rem; font-weight: 800; font-family: var(--mono); }
+  .v-purple { color: var(--accent); }
+  .v-green  { color: var(--green); }
+  .v-yellow { color: var(--yellow); }
+  .v-red    { color: var(--red); }
+
+  .card { background: var(--s1); border: 1px solid var(--border); border-radius: 16px; padding: 1.4rem; margin-bottom: 1.25rem; }
+  .card-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 1.1rem; display: flex; align-items: center; gap: 0.45rem; }
+
+  .tbl { width: 100%; border-collapse: collapse; }
+  .tbl th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.7rem; color: var(--sub); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  .tbl td { padding: 0.6rem 0.75rem; font-size: 0.84rem; border-bottom: 1px solid var(--border); }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--s2); }
+  .td-seat { font-family: var(--mono); font-weight: 700; color: var(--accent); }
+  .td-time { font-family: var(--mono); font-size: 0.77rem; color: var(--sub); }
+  .td-acts { display: flex; gap: 0.3rem; }
+  .ib { width: 28px; height: 28px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; transition: all 0.16s; }
+  .ib-co { background: var(--red-dim); color: var(--red); }
+  .ib-co:hover { background: rgba(255,92,92,0.25); }
+  .ib-dl { background: rgba(107,107,136,0.1); color: var(--sub); }
+  .ib-dl:hover { background: var(--red-dim); color: var(--red); }
+  .empty-td { text-align: center; color: var(--sub); font-size: 0.83rem; padding: 2rem !important; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+  .fg { display: flex; flex-direction: column; gap: 0.28rem; }
+  label { font-size: 0.72rem; color: var(--sub); font-weight: 500; }
+  input, select { padding: 0.58rem 0.8rem; background: var(--s2); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.86rem; outline: none; transition: border 0.18s; width: 100%; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+
+  .btn { padding: 0.6rem 1rem; border: none; border-radius: 9px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.16s; }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-accent:hover { opacity: 0.85; }
+  .btn-green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,214,143,0.25); }
+  .btn-green:hover { background: rgba(0,214,143,0.2); }
+  .btn-red { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,92,92,0.25); }
+  .btn-red:hover { background: rgba(255,92,92,0.2); }
+  .btn-ghost { background: var(--s2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-full { width: 100%; }
+
+  .seat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 0.8rem; }
+  .seat-tile { background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; cursor: pointer; transition: all 0.18s; }
+  .seat-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .seat-tile.occ { border-color: rgba(0,214,143,0.3); background: rgba(0,214,143,0.04); }
+  .tile-id { font-family: var(--mono); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .tile-chip { display: inline-flex; align-items: center; gap: 0.22rem; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.45rem; border-radius: 20px; letter-spacing: 0.4px; }
+  .chip-free { background: rgba(107,107,136,0.15); color: var(--sub); }
+  .chip-occ  { background: rgba(0,214,143,0.12); color: var(--green); }
+  .chip-dot  { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .tile-name { font-size: 0.76rem; color: var(--text); margin-top: 0.35rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile-time { font-size: 0.68rem; color: var(--sub); font-family: var(--mono); }
+  .seats-toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .search-box { flex: 1; min-width: 160px; padding: 0.52rem 0.8rem; background: var(--s1); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.84rem; outline: none; }
+  .search-box:focus { border-color: var(--accent); }
+  .filter-group { display: flex; gap: 0.25rem; }
+  .fbtn { padding: 0.38rem 0.8rem; border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--sub); font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.16s; }
+  .fbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .qr-controls { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .qr-all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 1rem; }
+  .qr-tile { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; transition: all 0.18s; }
+  .qr-tile:hover { border-color: var(--accent); }
+  .qr-tile.occ { border-color: rgba(0,214,143,0.3); }
+  .qr-canvas-wrap { background: #fff; border-radius: 10px; padding: 8px; display: flex; align-items: center; justify-content: center; }
+  .qr-tile-id { font-family: var(--mono); font-size: 1rem; font-weight: 700; }
+  .qr-tile-status { font-size: 0.72rem; color: var(--sub); }
+  .qr-tile-status.occ { color: var(--green); }
+  .qr-dl-btn { width: 100%; padding: 0.45rem; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(91,94,247,0.2); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.16s; }
+  .qr-dl-btn:hover { background: rgba(91,94,247,0.2); }
+  .qr-loading { text-align: center; color: var(--sub); padding: 3rem; font-size: 0.85rem; }
+
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 200; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--s1); border: 1px solid var(--border); border-radius: 22px; padding: 1.8rem; width: 90%; max-width: 320px; text-align: center; animation: popIn 0.2s ease; }
+  @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-id { font-family: var(--mono); font-size: 1.7rem; font-weight: 800; color: var(--accent); }
+  .modal-status { font-size: 0.8rem; color: var(--sub); margin-bottom: 1.1rem; }
+  #qrBox { display: flex; justify-content: center; margin-bottom: 1.1rem; }
+  #qrBox > div { background: #fff; padding: 10px; border-radius: 10px; }
+  .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+  .modal-btns .btn { padding: 0.6rem; font-size: 0.82rem; }
+  .modal-btns .btn.span2 { grid-column: 1/-1; }
+
+  .export-row { display: flex; gap: 0.65rem; flex-wrap: wrap; }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--s2); border: 1px solid var(--border); border-radius: 11px; padding: 0.7rem 1.1rem; font-size: 0.83rem; font-weight: 500; z-index: 999; transform: translateY(60px); opacity: 0; transition: all 0.25s; pointer-events: none; max-width: 260px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.s { border-color: var(--green); color: var(--green); }
+  .toast.e { border-color: var(--red); color: var(--red); }
+  .toast.i { border-color: var(--accent); color: var(--accent); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  @media (max-width: 860px) { aside { display: none; } .main { margin-left: 0; } .stat-grid { grid-template-columns: repeat(2,1fr); } .settings-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } .qr-all-grid { grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); } }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="sb-logo">
+    <div class="sb-logo-icon">📚</div>
+    <div class="sb-logo-name">Smart<em>Seat</em></div>
+  </div>
+  <div class="sb-badge">AR Library</div>
+  <nav class="sb-nav">
+    <button class="sb-item active" onclick="showPage('dashboard',this)"><span class="ico">📊</span> Dashboard</button>
+    <button class="sb-item" onclick="showPage('seats',this)"><span class="ico">🪑</span> Seat Map</button>
+    <button class="sb-item" onclick="showPage('qrgen',this)"><span class="ico">📲</span> QR Generator</button>
+    <button class="sb-item" onclick="showPage('attendance',this)"><span class="ico">📋</span> Attendance</button>
+    <button class="sb-item" onclick="showPage('manual',this)"><span class="ico">✏️</span> Manual Entry</button>
+    <button class="sb-item" onclick="showPage('settings',this)"><span class="ico">⚙️</span> Settings</button>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-clock" id="clock">--:--:--</div>
+  </div>
+</aside>
+
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="pg-header"><h1>Dashboard 📊</h1><p>Live attendance overview — auto-refreshes every 5 seconds</p></div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-lbl">Total Seats</div><div class="stat-val v-purple" id="d-total">—</div></div>
+      <div class="stat-box"><div class="stat-lbl">Checked In</div><div class="stat-val v-green"  id="d-in">—</div></div>
+      <div class="stat-box"><div class="stat-lbl">Available</div><div class="stat-val v-yellow" id="d-free">—</div></div>
+      <div class="stat-box"><div class="stat-lbl">Occupancy</div><div class="stat-val v-purple" id="d-pct">—</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 Checked-In Students</div>
+      <table class="tbl"><thead><tr><th>Seat</th><th>Name</th><th>Check-in</th><th>Actions</th></tr></thead>
+      <tbody id="dashTbl"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="card-title">📤 Export</div>
+      <div class="export-row">
+        <button class="btn btn-ghost" onclick="exportCSV()">⬇ Download CSV</button>
+        <button class="btn btn-ghost" onclick="printReport()">🖨 Print Report</button>
+        <button class="btn btn-red"   onclick="clearAll()">🗑 Clear All Records</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEAT MAP -->
+  <div class="page" id="page-seats">
+    <div class="pg-header"><h1>Seat Map 🪑</h1><p>Click any seat to view QR or manage check-in/out</p></div>
+    <div class="seats-toolbar">
+      <input class="search-box" type="text" placeholder="Search seat or name..." oninput="filterSeats(this.value)">
+      <div class="filter-group">
+        <button class="fbtn on" onclick="setFilter('all',this)">All</button>
+        <button class="fbtn" onclick="setFilter('free',this)">Available</button>
+        <button class="fbtn" onclick="setFilter('occ',this)">Occupied</button>
+      </div>
+    </div>
+    <div class="seat-grid" id="seatGrid"></div>
+  </div>
+
+  <!-- QR GENERATOR -->
+  <div class="page" id="page-qrgen">
+    <div class="pg-header"><h1>QR Generator 📲</h1><p>Generate and download QR codes for every seat</p></div>
+    <div class="qr-controls">
+      <button class="btn btn-accent" onclick="generateAllQRs()">🔄 Generate All QRs</button>
+      <button class="btn btn-ghost"  onclick="downloadAllQRs()">⬇ Download All (ZIP)</button>
+      <button class="btn btn-ghost"  onclick="printAllQRs()">🖨 Print All QRs</button>
+    </div>
+    <div class="qr-all-grid" id="qrAllGrid">
+      <div class="qr-loading">Click "Generate All QRs" to create QR codes for every seat.</div>
+    </div>
+  </div>
+
+  <!-- ATTENDANCE -->
+  <div class="page" id="page-attendance">
+    <div class="pg-header"><h1>Attendance List 📋</h1><p>View and manage all attendance records</p></div>
+    <div class="card">
+      <table class="tbl"><thead><tr><th>Seat</th><th>Name</th><th>Check-in Time</th><th>Actions</th></tr></thead>
+      <tbody id="attTbl"></tbody></table>
+    </div>
+  </div>
+
+  <!-- MANUAL ENTRY -->
+  <div class="page" id="page-manual">
+    <div class="pg-header"><h1>Manual Entry ✏️</h1><p>Manually check in or check out students</p></div>
+    <div class="card">
+      <div class="card-title">✅ Manual Check-in</div>
+      <div class="form-grid">
+        <div class="fg"><label>Seat</label><select id="m-seat"></select></div>
+        <div class="fg"><label>Student Name</label><input type="text" id="m-name" placeholder="Full name..."></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-green" onclick="manualCheckin()">✅ Check In</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🚪 Manual Checkout</div>
+      <div class="form-grid">
+        <div class="fg"><label>Occupied Seat</label><select id="m-co-seat"></select></div>
+      </div>
+      <div class="btn-row"><button class="btn btn-red" onclick="manualCheckout()">🚪 Check Out</button></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="pg-header"><h1>Settings ⚙️</h1><p>Configure seats and manage system data</p></div>
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-title">🪑 Generate Seats</div>
+        <div class="form-grid">
+          <div class="fg"><label>Number of Seats</label><input type="number" id="s-count" value="20" min="1" max="200"></div>
+          <div class="fg"><label>Prefix (A, B, S…)</label><input type="text" id="s-prefix" value="S" maxlength="3"></div>
+        </div>
+        <button class="btn btn-accent btn-full" style="margin-top:0.5rem" onclick="regenerateSeats()">🔄 Generate Seats</button>
+      </div>
+      <div class="card">
+        <div class="card-title">ℹ️ System Info</div>
+        <div style="font-size:0.82rem;color:var(--sub);line-height:2.1">
+          <div>Library: <b style="color:var(--text)">AR Library</b></div>
+          <div>Storage: <b style="color:var(--green)">Server (Render)</b></div>
+          <div>API: <b style="color:var(--accent);font-size:0.72rem">qr-attandance-system-1.onrender.com</b></div>
+          <div>Student URL: <b style="color:var(--green)">/student</b></div>
+        </div>
+        <hr>
+        <button class="btn btn-red btn-full" onclick="hardReset()">⚠️ Hard Reset (Delete Everything)</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SEAT DETAIL MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-id" id="m-sid">—</div>
+    <div class="modal-status" id="m-sstat">—</div>
+    <div id="qrBox"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost"  onclick="closeModal()">✕ Close</button>
+      <button class="btn btn-accent" onclick="dlModalQR()">⬇ Download QR</button>
+      <button class="btn btn-green"  id="m-ci-btn" onclick="modalCheckin()">✅ Check In</button>
+      <button class="btn btn-red"    id="m-co-btn" onclick="modalCheckout()">🚪 Check Out</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  HARDCODED API BASE URL
+// ═══════════════════════════════════════════════════════════════
+const API = 'https://qr-attandance-system-1.onrender.com/api';
+
+// ── STATE ────────────────────────────────────────────────────
+let seats = [];
+let att = {};       // attendance object cached from server
+let filterMode = 'all';
+let searchTerm = '';
+let activeModal = null;
+let qrInstModal = null;
+
+// ── API HELPERS ───────────────────────────────────────────────
+async function apiGet(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.error || 'Server error'), data);
+  return data;
+}
+
+async function apiDelete(path) {
+  const r = await fetch(API + path, { method: 'DELETE' });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+async function init() {
+  startClock();
+  await refresh();
+  setInterval(refresh, 5000);
+}
+
+async function refresh() {
+  try {
+    const state = await apiGet('/state');
+    seats = state.seats || [];
+    att   = state.attendance || {};
+    renderAll();
+  } catch(e) {
+    toast('⚠️ Cannot reach server', 'e');
+  }
+}
+
+function renderAll() {
+  renderSeatGrid();
+  renderDashTable();
+  renderAttTable();
+  updateStats();
+  populateSelects();
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function updateStats() {
+  const total = seats.length, inCount = Object.keys(att).length;
+  document.getElementById('d-total').textContent = total;
+  document.getElementById('d-in').textContent    = inCount;
+  document.getElementById('d-free').textContent  = total - inCount;
+  document.getElementById('d-pct').textContent   = total ? Math.round(inCount/total*100)+'%' : '0%';
+}
+
+// ── SEAT MAP ──────────────────────────────────────────────────
+function renderSeatGrid() {
+  const grid = document.getElementById('seatGrid');
+  const list = seats.filter(s => {
+    const occ = !!att[s.id];
+    const matchF = filterMode === 'all' || (filterMode === 'free' && !occ) || (filterMode === 'occ' && occ);
+    const matchS = s.id.toLowerCase().includes(searchTerm) || (occ && att[s.id].name.toLowerCase().includes(searchTerm));
+    return matchF && matchS;
+  });
+  if (!list.length) { grid.innerHTML = `<div style="color:var(--sub);font-size:0.85rem;grid-column:1/-1;text-align:center;padding:2.5rem">No seats found</div>`; return; }
+  grid.innerHTML = list.map(s => {
+    const a = att[s.id];
+    return `<div class="seat-tile ${a?'occ':''}" onclick="openModal('${s.id}')">
+      <div class="tile-id">${s.id}</div>
+      <span class="tile-chip ${a?'chip-occ':'chip-free'}"><span class="chip-dot"></span>${a?'Occupied':'Available'}</span>
+      ${a ? `<div class="tile-name">${a.name}</div><div class="tile-time">${a.checkinTime}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function filterSeats(v) { searchTerm = v.toLowerCase(); renderSeatGrid(); }
+function setFilter(f, el) {
+  filterMode = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderSeatGrid();
+}
+
+// ── SEAT MODAL ────────────────────────────────────────────────
+function openModal(sid) {
+  activeModal = sid;
+  const a = att[sid];
+  document.getElementById('m-sid').textContent   = sid;
+  document.getElementById('m-sstat').textContent = a ? `✅ ${a.name} checked in at ${a.checkinTime}` : 'Seat is available';
+  document.getElementById('m-ci-btn').style.display = a ? 'none' : 'block';
+  document.getElementById('m-co-btn').style.display = a ? 'block' : 'none';
+
+  const box = document.getElementById('qrBox');
+  box.innerHTML = '';
+  const inner = document.createElement('div');
+  box.appendChild(inner);
+  qrInstModal = new QRCode(inner, { text: `SMARTSEAT::${sid}`, width: 200, height: 200, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H });
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); activeModal = null; }
+
+function dlModalQR() {
+  const canvas = document.querySelector('#qrBox canvas');
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.download = `QR-${activeModal}.png`;
+  a.href = canvas.toDataURL(); a.click();
+}
+
+async function modalCheckin() {
+  const name = prompt(`Enter student name for seat ${activeModal}:`);
+  if (!name || !name.trim()) return;
+  await checkin(activeModal, name.trim());
+  closeModal();
+}
+
+async function modalCheckout() { await checkout(activeModal); closeModal(); }
+
+// ── QR GENERATOR ──────────────────────────────────────────────
+function generateAllQRs() {
+  const grid = document.getElementById('qrAllGrid');
+  grid.innerHTML = '';
+  seats.forEach((s, idx) => {
+    const a = att[s.id];
+    const freshWrap = document.createElement('div');
+    freshWrap.className = 'qr-canvas-wrap';
+    freshWrap.id = `qrwrap-${s.id}`;
+    const tile = document.createElement('div');
+    tile.className = `qr-tile ${a ? 'occ' : ''}`;
+    tile.innerHTML = `<div class="qr-tile-id">${s.id}</div>`;
+    tile.appendChild(freshWrap);
+    const statusDiv = document.createElement('div');
+    statusDiv.className = `qr-tile-status ${a?'occ':''}`;
+    statusDiv.textContent = a ? `✅ ${a.name}` : 'Available';
+    tile.appendChild(statusDiv);
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'qr-dl-btn';
+    dlBtn.textContent = '⬇ Download';
+    dlBtn.onclick = () => downloadSingleQR(s.id);
+    tile.appendChild(dlBtn);
+    grid.appendChild(tile);
+    setTimeout(() => {
+      try { new QRCode(freshWrap, { text: `SMARTSEAT::${s.id}`, width: 140, height: 140, colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.H }); } catch(e) {}
+    }, idx * 30);
+  });
+  toast('All QR codes generated!', 's');
+}
+
+function downloadSingleQR(sid) {
+  const wrap = document.getElementById(`qrwrap-${sid}`);
+  if (!wrap) { toast('Generate QRs first!', 'e'); return; }
+  const canvas = wrap.querySelector('canvas');
+  if (!canvas) { toast('QR not ready yet', 'e'); return; }
+  const a = document.createElement('a');
+  a.download = `SmartSeat-QR-${sid}.png`;
+  a.href = canvas.toDataURL(); a.click();
+}
+
+async function downloadAllQRs() {
+  const tiles = document.querySelectorAll('.qr-tile');
+  if (!tiles.length) { toast('Generate QRs first!', 'e'); return; }
+  if (typeof JSZip === 'undefined') { toast('Downloading individually...', 'i'); seats.forEach(s => downloadSingleQR(s.id)); return; }
+  toast('Creating ZIP file...', 'i');
+  const zip = new JSZip(); let count = 0;
+  for (const s of seats) {
+    const wrap = document.getElementById(`qrwrap-${s.id}`);
+    const canvas = wrap ? wrap.querySelector('canvas') : null;
+    if (!canvas) continue;
+    zip.file(`SmartSeat-QR-${s.id}.png`, canvas.toDataURL('image/png').split(',')[1], { base64: true });
+    count++;
+  }
+  if (!count) { toast('No QRs ready to download', 'e'); return; }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `SmartSeat-QRs-${new Date().toLocaleDateString('en-CA').replace(/\//g,'-')}.zip`;
+  a.click();
+  toast(`Downloaded ${count} QR codes!`, 's');
+}
+
+function printAllQRs() {
+  const tiles = document.querySelectorAll('.qr-tile');
+  if (!tiles.length) { toast('Generate QRs first!', 'e'); return; }
+  let imgs = '';
+  seats.forEach(s => {
+    const wrap = document.getElementById(`qrwrap-${s.id}`);
+    const canvas = wrap ? wrap.querySelector('canvas') : null;
+    if (!canvas) return;
+    const a = att[s.id];
+    imgs += `<div class="seat-qr"><img src="${canvas.toDataURL()}" width="160" height="160"><div class="qr-label">${s.id}</div><div class="qr-sub">${a ? '✅ ' + a.name : 'SmartSeat'}</div></div>`;
+  });
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>SmartSeat QR Codes</title><style>body{font-family:Arial,sans-serif;padding:1.5rem;}h2{margin-bottom:1.5rem;}.grid{display:flex;flex-wrap:wrap;gap:1.5rem;}.seat-qr{border:1.5px solid #ddd;border-radius:10px;padding:1rem;text-align:center;width:180px;page-break-inside:avoid;}.qr-label{font-size:1.2rem;font-weight:700;margin-top:0.5rem;font-family:monospace;}.qr-sub{font-size:0.75rem;color:#666;margin-top:0.2rem;}@media print{body{padding:0.5rem;}}</style></head><body><h2>SmartSeat — QR Codes (${new Date().toLocaleDateString()})</h2><div class="grid">${imgs}</div></body></html>`);
+  w.document.close(); w.print();
+}
+
+// ── CHECK-IN / OUT ────────────────────────────────────────────
+async function checkin(sid, name) {
+  try {
+    await apiPost('/checkin', { seatId: sid, name });
+    toast(`✅ ${sid} — ${name} checked in!`, 's');
+    await refresh();
+  } catch(e) {
+    toast(`❌ ${e.message}`, 'e');
+  }
+}
+
+async function checkout(sid) {
+  try {
+    const res = await apiPost('/checkout', { seatId: sid });
+    toast(`🚪 ${sid} — ${res.record.name} checked out!`, 'i');
+    await refresh();
+  } catch(e) {
+    toast(`❌ ${e.message}`, 'e');
+  }
+}
+
+// ── TABLES ────────────────────────────────────────────────────
+function renderDashTable() {
+  const occ = Object.keys(att);
+  const tb = document.getElementById('dashTbl');
+  if (!occ.length) { tb.innerHTML = `<tr><td colspan="4" class="empty-td">No students checked in</td></tr>`; return; }
+  tb.innerHTML = occ.map(sid => `
+    <tr>
+      <td class="td-seat">${sid}</td>
+      <td>${att[sid].name}</td>
+      <td class="td-time">${att[sid].checkinTime}</td>
+      <td><div class="td-acts">
+        <button class="ib ib-co" onclick="checkout('${sid}')">🚪</button>
+        <button class="ib ib-dl" onclick="delRecord('${sid}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function renderAttTable() {
+  const occ = Object.keys(att);
+  const tb = document.getElementById('attTbl');
+  if (!occ.length) { tb.innerHTML = `<tr><td colspan="4" class="empty-td">No attendance records</td></tr>`; return; }
+  tb.innerHTML = occ.map(sid => `
+    <tr>
+      <td class="td-seat">${sid}</td>
+      <td>${att[sid].name}</td>
+      <td class="td-time">${att[sid].checkinTime}</td>
+      <td><div class="td-acts">
+        <button class="ib ib-co" onclick="checkout('${sid}')">🚪</button>
+        <button class="ib ib-dl" onclick="delRecord('${sid}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── MANUAL ────────────────────────────────────────────────────
+function populateSelects() {
+  const free = seats.filter(s => !att[s.id]);
+  const occ  = seats.filter(s => !!att[s.id]);
+  document.getElementById('m-seat').innerHTML = free.length
+    ? free.map(s => `<option value="${s.id}">${s.id}</option>`).join('')
+    : '<option value="">No available seats</option>';
+  document.getElementById('m-co-seat').innerHTML = occ.length
+    ? occ.map(s => `<option value="${s.id}">${s.id} — ${att[s.id].name}</option>`).join('')
+    : '<option value="">No occupied seats</option>';
+}
+
+async function manualCheckin() {
+  const sid  = document.getElementById('m-seat').value;
+  const name = document.getElementById('m-name').value.trim();
+  if (!sid)  { toast('Select a seat!', 'e'); return; }
+  if (!name) { toast('Enter student name!', 'e'); return; }
+  await checkin(sid, name);
+  document.getElementById('m-name').value = '';
+}
+
+async function manualCheckout() {
+  const sid = document.getElementById('m-co-seat').value;
+  if (!sid) { toast('No occupied seat selected!', 'e'); return; }
+  await checkout(sid);
+}
+
+// ── DELETE / CLEAR ────────────────────────────────────────────
+async function delRecord(sid) {
+  if (!confirm(`Delete record for ${sid}?`)) return;
+  try {
+    await apiDelete(`/attendance/${sid}`);
+    toast(`${sid} record deleted`, 'i');
+    await refresh();
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+async function clearAll() {
+  if (!confirm('Clear ALL attendance records?')) return;
+  try {
+    await apiDelete('/attendance');
+    toast('All records cleared!', 'i');
+    await refresh();
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+async function hardReset() {
+  if (!confirm('⚠️ This will delete ALL data — seats + attendance. Are you sure?')) return;
+  try {
+    await apiPost('/reset', {});
+    toast('Hard reset done!', 's');
+    await refresh();
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────
+async function regenerateSeats() {
+  const n = parseInt(document.getElementById('s-count').value) || 20;
+  const p = document.getElementById('s-prefix').value.trim() || 'S';
+  if (!confirm(`Generate ${n} new seats? Attendance data will be preserved.`)) return;
+  try {
+    await apiPost('/seats', { count: n, prefix: p });
+    toast(`${n} seats generated!`, 's');
+    await refresh();
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+// ── EXPORT ────────────────────────────────────────────────────
+function exportCSV() {
+  const rows = [['Seat', 'Name', 'Check-in Time']];
+  seats.forEach(s => { if (att[s.id]) rows.push([s.id, att[s.id].name, att[s.id].checkinTime]); });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `attendance-${new Date().toLocaleDateString('en-CA').replace(/\//g,'-')}.csv`;
+  a.click(); toast('CSV downloaded!', 's');
+}
+
+function printReport() {
+  const rows = seats.filter(s => att[s.id]).map(s =>
+    `<tr><td>${s.id}</td><td>${att[s.id].name}</td><td>${att[s.id].checkinTime}</td></tr>`).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>Attendance Report</title><style>body{font-family:Arial;padding:2rem;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:0.55rem;text-align:left;}th{background:#f4f4f4;}</style></head><body>
+    <h2>SmartSeat Attendance — ${new Date().toLocaleDateString()}</h2>
+    <p style="color:#666;margin-bottom:1rem">Total checked in: ${Object.keys(att).length} / ${seats.length}</p>
+    <table><thead><tr><th>Seat</th><th>Name</th><th>Check-in</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="3" style="text-align:center">No records</td></tr>'}</tbody></table>
+  </body></html>`);
+  w.document.close(); w.print();
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  renderAll();
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────
+function startClock() {
+  const tick = () => document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  tick(); setInterval(tick, 1000);
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function toast(msg, type = 'i') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function getTime() { return new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}); }
+
+init();
+</script>
+</body>
+</html>
